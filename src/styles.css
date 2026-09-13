@@ -5856,10 +5856,15 @@ body.onboarding-account-step .site-footer {
     grid-row: 2;
     height: 78vh;
     height: 78dvh;
-    /* --app-vh 由 index.html 里的脚本按实测可见高度维护，键盘/地址栏变化会重算，
-       比 vh/dvh 更可靠；不支持自定义属性的浏览器会保留上面的 dvh/vh 兜底值。 */
+    /* --app-vh 由 index.html 的脚本按实测可见高度维护，键盘/地址栏变化会重算。 */
     height: calc(var(--app-vh, 1vh) * 78);
     min-height: 560px;
+    /* 必须让面板自己能滚：窄屏下工具栏折行后占 300px 以上，加上文本框的
+       min-height 会超过面板高度。面板默认是 overflow: visible，装不下的部分
+       会溢出到面板外、被下一行的预览区覆盖绘制，那几行文字既看不见也点不到
+       （表现为"文本框滚到底了但后面的内容还是看不到、没法编辑"）。
+       改成 auto 后超出的部分由面板自身滚动露出，不会再被盖住。 */
+    overflow-y: auto;
     border-bottom: 1px solid var(--line);
   }
 
@@ -5984,6 +5989,7 @@ body.onboarding-account-step .site-footer {
 
   .editor-panel {
     height: 78vh;
+    height: calc(var(--app-vh, 1vh) * 78);
     min-height: 560px;
     gap: 10px;
   }
