@@ -4167,6 +4167,7 @@ body.export-busy {
   min-width: 0;
   padding: 18px;
   background: var(--crop-stage-bg);
+  overflow: auto;
 }
 
 #cropCanvas {
