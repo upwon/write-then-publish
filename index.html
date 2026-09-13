@@ -3,6 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <script>
+      // 部分移动端浏览器（尤其是国内定制内核）不认 dvh，也不按标准语义收缩
+      // 布局视口来避让键盘/地址栏，导致 78vh/78dvh 算出来的高度比实际可见区域大，
+      // 编辑框看起来"滑不到底"。这里用 JS 实测的可见高度算出 --app-vh，
+      // 键盘或地址栏一变化就重算，比纯 CSS 视口单位更可靠。
+      (function () {
+        function syncViewportHeightVar() {
+          var height = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+          document.documentElement.style.setProperty("--app-vh", height * 0.01 + "px");
+        }
+        syncViewportHeightVar();
+        window.addEventListener("resize", syncViewportHeightVar);
+        window.addEventListener("orientationchange", syncViewportHeightVar);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", syncViewportHeightVar);
+          window.visualViewport.addEventListener("scroll", syncViewportHeightVar);
+        }
+      })();
+    </script>
     <title>写了就发 | Write Then Publish</title>
     <meta name="description" content="一份 Markdown，排成小红书图文卡片或公众号长文。图片、实况照片、Obsidian 同步和导出都在同一个工作区完成；实况在浏览器本地合成，生成过程不上传原视频。" />
     <link rel="canonical" href="https://fawen.fun/" />

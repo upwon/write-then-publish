@@ -82,6 +82,10 @@ body {
   grid-template-rows: minmax(0, 1fr) auto;
   height: 100vh;
   height: 100dvh;
+  /* --app-vh 是 index.html 里用 visualViewport 实测出来的高度，键盘/地址栏
+     变化会重算；部分移动端浏览器的 dvh 不会正确避让键盘，导致这层外壳比
+     实际可见区域高，底部内容被键盘盖住却显示"已经滚到底"。 */
+  height: calc(var(--app-vh, 1vh) * 100);
   overflow: hidden;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--ink);
@@ -5851,6 +5855,9 @@ body.onboarding-account-step .site-footer {
     grid-row: 2;
     height: 78vh;
     height: 78dvh;
+    /* --app-vh 由 index.html 里的脚本按实测可见高度维护，键盘/地址栏变化会重算，
+       比 vh/dvh 更可靠；不支持自定义属性的浏览器会保留上面的 dvh/vh 兜底值。 */
+    height: calc(var(--app-vh, 1vh) * 78);
     min-height: 560px;
     border-bottom: 1px solid var(--line);
   }
