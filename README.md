@@ -177,9 +177,12 @@ ZIP 解压后是按页码统一编号的平铺结构，实况包与普通图片�
 - 登录状态有效时直接进入工作区，不强制每位用户注册；
 - Row Level Security 按 `auth.uid()` 隔离数据。
 
-自行部署账号功能时，运行 [`supabase/schema.sql`](supabase/schema.sql)，再填写 [`src/supabase-config.js`](src/supabase-config.js) 中的 Project URL 与 publishable key。
+自行部署账号功能时，运行 [`supabase/schema.sql`](supabase/schema.sql)，再填写 [`src/supabase-config.js`](src/supabase-config.js) 中的 Project URL 与 publishable key；同时把部署域名加进 Supabase Dashboard 的 Authentication → URL Configuration → Redirect URLs，否则登录后会跳转失败或跳回默认地址。
 
 云端 Live Photo 兜底还需要应用 [`supabase/migrations/20260731_cloud_live_photo.sql`](supabase/migrations/20260731_cloud_live_photo.sql)、部署 `live-photo-jobs` Edge Function，并配置仓库专用 GitHub 触发凭证。不要把 `service_role` 或触发凭证写进前端和仓库。
+
+- **Edge Function Secrets**（Supabase Dashboard → Edge Functions → `live-photo-jobs` → Secrets）：`GITHUB_REPO`（形如 `owner/repo`）、`GITHUB_DISPATCH_TOKEN`（能对该仓库触发 `repository_dispatch` 的 Fine-grained PAT，只授权 Contents: Read and write）、`CLOUD_JOB_SECRET`（与下面仓库 Secret 保持一致的随机字符串）；
+- **GitHub 仓库 Secrets**（Settings → Secrets and variables → Actions，供 [`.github/workflows/cloud-live-photo.yml`](.github/workflows/cloud-live-photo.yml) 使用）：`SUPABASE_FUNCTION_URL`（`https://<project-ref>.supabase.co/functions/v1/live-photo-jobs`）、`CLOUD_JOB_SECRET`（同上）。
 
 ### 公众号
 
