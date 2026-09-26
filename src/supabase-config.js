@@ -1,4 +1,4 @@
 window.WRITE_THEN_PUBLISH_SUPABASE = {
-  url: "https://wsihdsmmynrsxwpdihke.supabase.co",
-  publishableKey: "sb_publishable_zSMYVD26-yu-ED51E-W6xA_FQfRIF_8",
+  url: "https://cskjsiuirxhyxibsoubm.supabase.co",
+  publishableKey: "sb_publishable_cPY2GC2pmqS95ECIfbCt8w_ftlIk9It",
 };
