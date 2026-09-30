@@ -2,24 +2,46 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # 每 3 天一次，留足余量：Supabase 免费版是「过去 7 天没有数据库活动」才会自动暂停。
+    # UTC 05:00；按月内日期步进，通常间隔 3 天，月界间隔可能更短。
     - cron: "0 5 */3 * *"
   workflow_dispatch: {}
+
+permissions: {}
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
-      - name: Ping Supabase REST API to keep the free project active
+      - name: Read Supabase profiles to keep the free project active
+        shell: bash
         env:
           SUPABASE_URL: https://cskjsiuirxhyxibsoubm.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_cPY2GC2pmqS95ECIfbCt8w_ftlIk9It
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/" \
-            -H "apikey: $SUPABASE_PUBLISHABLE_KEY")
-          echo "Supabase REST API responded with HTTP $status"
-          if [ "$status" -lt 200 ] || [ "$status" -ge 500 ]; then
-            echo "Unexpected status, failing so it shows up in Actions."
+          set -euo pipefail
+
+          # /rest/v1/ 的 OpenAPI 根路径要求 secret key；改为真实表的只读查询。
+          # profiles 启用了 RLS；anon 有 SELECT 权限但无匹配策略，预期返回 []。
+          # publishable key 仅放在 apikey 中，不作为 Bearer JWT，也不使用高权限 key。
+          if status=$(curl --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --output /dev/null --write-out '%{http_code}' \
+            "${SUPABASE_URL%/}/rest/v1/profiles?select=user_id&limit=1" \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Accept: application/json' \
+            --header 'Accept-Profile: public'); then
+            echo "Supabase REST API responded with HTTP $status"
+          else
+            curl_exit=$?
+            echo "::error::Supabase request failed (curl exit $curl_exit, HTTP ${status:-000})."
             exit 1
           fi
+
+          case "$status" in
+            2[0-9][0-9]) ;;
+            *)
+              echo "::error::Expected HTTP 2xx, received $status. Check the API key, endpoint and anon SELECT/RLS configuration."
+              exit 1
+              ;;
+          esac
