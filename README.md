@@ -6,11 +6,38 @@
 
 一份内容，在同一个工作区完成图文卡片、公众号长文、图片与实况排版，再直接导出。
 
-**[在线使用](https://fawen.fun)** · [核心功能](#核心功能) · [本地运行](#本地运行) · [能力矩阵](#能力矩阵)
+**[在线使用](https://write-then-publish-jade.vercel.app)** · [核心功能](#核心功能) · [本地运行](#本地运行) · [能力矩阵](#能力矩阵)
 
 [![License: Personal Non-Commercial](https://img.shields.io/badge/License-Personal%20Non--Commercial-111827.svg)](LICENSE) [![Frontend](https://img.shields.io/badge/Frontend-Vanilla_HTML%2FCSS%2FJS-2563eb.svg)](#技术与边界) [![Live Photo](https://img.shields.io/badge/Live_Photo-WebCodecs-287d4d.svg)](#live-photo) [![Cloud](https://img.shields.io/badge/Cloud-Supabase-3ecf8e.svg)](#账号与数据)
 
 </div>
+
+## 部署与访问
+
+本仓库是 [fxyadela/write-then-publish](https://github.com/fxyadela/write-then-publish) 的 Fork，当前部署来自 `upwon/write-then-publish` 的 `main` 分支。
+
+| 用途 | 平台 / 地址 |
+|---|---|
+| 在线使用（本 Fork） | [https://write-then-publish-jade.vercel.app](https://write-then-publish-jade.vercel.app) |
+| 前端托管 | Vercel，项目 `write-then-publish`，团队 `upwons-projects` |
+| 部署管理 | [Vercel 项目](https://vercel.com/upwons-projects/write-then-publish) |
+| 账号、数据库与素材存储 | Supabase，项目 `write-then-publish` |
+| Supabase Project URL | `https://cskjsiuirxhyxibsoubm.supabase.co`（API 地址，不是网页入口） |
+| 原作者在线版 | [https://fawen.fun](https://fawen.fun) |
+
+Vercel 按 [`vercel.json`](vercel.json) 从仓库根目录发布静态 HTML / CSS / JavaScript，无需构建命令。生产部署关联 `main` 分支；部署成功后固定网址指向新的生产版本。若访问时出现 Vercel 登录或权限提示，请使用有该项目权限的账号，访问范围由 Vercel 的 Deployment Protection 设置决定。
+
+### Supabase 定时保活
+
+保活任务运行在 **GitHub Actions**，工作流为 [`.github/workflows/supabase-keepalive.yml`](.github/workflows/supabase-keepalive.yml)。它不是网站的部署任务。
+
+- 定时规则为 `0 5 */3 * *`：月内 1、4、7……日 UTC 05:00（北京时间 13:00）触发，月界间隔可能更短，实际启动可能延迟；也支持 Actions 页面手动运行。
+- 使用 publishable key，通过 `apikey` 请求头执行只读查询 `GET /rest/v1/profiles?select=user_id&limit=1`；不使用 secret key 或 service_role。
+- 当前项目的 `profiles` 表启用了 RLS，匿名角色有 SELECT 权限但没有匹配的读取策略，因此匿名查询预期返回空数组 `[]`。
+- 仅 HTTP 2xx 判为成功；3xx、401 及其他 4xx、5xx、网络错误或超时均使任务失败。
+- 2026-10-01 的[定时运行](https://github.com/upwon/write-then-publish/actions/runs/36854721767)执行了修复版本，日志确认 HTTP 200。历史运行的状态不会因更新 workflow 而改变。
+- 自行部署到其他 Supabase 项目时，应重新核对表的匿名 SELECT 权限和 RLS；不能为了保活开放用户数据，也不能把 401/403 当作成功。定期检查运行日志与项目状态，单次成功不代表项目永远不会暂停。
+
 
 <p align="center">
   <img src="docs/readme/workspace-multicards-fullscreen.jpg" width="100%" alt="写了就发全屏工作区，左侧是长篇文章编辑框，右侧是三列并排的九张图文卡片，第三张卡片包含真实视频截图" />
@@ -234,7 +261,7 @@ ZIP 解压后是按页码统一编号的平铺结构，实况包与普通图片�
 或使用命令行：
 
 ```bash
-git clone https://github.com/fxyadela/write-then-publish.git
+git clone https://github.com/upwon/write-then-publish.git
 cd write-then-publish
 npm start
 ```
