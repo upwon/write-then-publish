@@ -5990,7 +5990,7 @@ function detectCropHit(point) {
 }
 
 function startCropDrag(event) {
-  if (!cropper.image || !cropper.rect) return;
+  if (!cropper.image || !cropper.rect || cropper.drag || event.button !== 0) return;
   event.preventDefault();
   cropper.display = getCropDisplay();
   const canvasPoint = canvasPointFromEvent(event);
@@ -6020,16 +6020,18 @@ function startCropDrag(event) {
   }
 
   cropper.drag = {
+    pointerId: event.pointerId,
     action: action === "move-new" ? "move" : action,
     startX: sourcePoint.x,
     startY: sourcePoint.y,
     startRect: { ...cropper.rect },
   };
+  els.cropCanvas.setPointerCapture(event.pointerId);
   drawCropper();
 }
 
 function moveCropDrag(event) {
-  if (!cropper.drag || !cropper.image) return;
+  if (!cropper.drag || !cropper.image || event.pointerId !== cropper.drag.pointerId) return;
   const point = sourcePointFromCanvas(canvasPointFromEvent(event));
   const drag = cropper.drag;
 
@@ -6048,7 +6050,11 @@ function moveCropDrag(event) {
   drawCropper();
 }
 
-function stopCropDrag() {
+function stopCropDrag(event) {
+  if (event && cropper.drag && event.pointerId !== cropper.drag.pointerId) return;
+  if (event && els.cropCanvas.hasPointerCapture(event.pointerId)) {
+    els.cropCanvas.releasePointerCapture(event.pointerId);
+  }
   cropper.drag = null;
 }
 
@@ -6452,11 +6458,63 @@ function matchUnderlineMarker(text, i) {
   };
 }
 
+function matchInlineCodeSpan(text, i) {
+  if (text[i] !== "`") return null;
+  const delimiter = text.slice(i).match(/^`+/)[0];
+  const runs = /`+/g;
+  runs.lastIndex = i + delimiter.length;
+  let close;
+  while ((close = runs.exec(text))) {
+    if (close[0].length === delimiter.length) {
+      return { innerStart: i + delimiter.length, innerEnd: close.index, end: close.index + delimiter.length };
+    }
+  }
+  return null;
+}
+
+function findInlineEmphasisClose(text, start, marker) {
+  let i = start;
+  while (i < text.length) {
+    if (text[i] === "`") {
+      const code = matchInlineCodeSpan(text, i);
+      i = code ? code.end : i + text.slice(i).match(/^`+/)[0].length;
+    } else if (text.startsWith(marker, i)) {
+      return i;
+    } else {
+      i += 1;
+    }
+  }
+  return -1;
+}
+
 function parseInline(text, baseStart = 0) {
   const tokens = [];
   let i = 0;
 
   while (i < text.length) {
+    // Code spans are literal: do not interpret emphasis, links or custom markers inside.
+    if (text[i] === "`") {
+      const delimiter = text.slice(i).match(/^`+/)[0];
+      const innerStart = i + delimiter.length;
+      const code = matchInlineCodeSpan(text, i);
+      if (code) {
+        let start = innerStart;
+        let end = code.innerEnd;
+        let value = text.slice(start, end).replace(/\r\n|[\r\n]/g, " ");
+        if (value.startsWith(" ") && value.endsWith(" ") && /[^ ]/.test(value)) {
+          value = value.slice(1, -1);
+          start += 1;
+          end -= 1;
+        }
+        tokens.push({ text: value, code: true, sourceStart: baseStart + start, sourceEnd: baseStart + end });
+        i = code.end;
+      } else {
+        tokens.push({ text: delimiter, sourceStart: baseStart + i, sourceEnd: baseStart + innerStart });
+        i = innerStart;
+      }
+      continue;
+    }
+
     const imageMatch = text.slice(i).match(/^\[\[image:([\w-]+)\]\]/);
     if (imageMatch) {
       tokens.push({
@@ -6517,7 +6575,7 @@ function parseInline(text, baseStart = 0) {
     }
 
     if (text.startsWith("***", i)) {
-      const close = text.indexOf("***", i + 3);
+      const close = findInlineEmphasisClose(text, i + 3, "***");
       if (close !== -1) {
         tokens.push(
           ...applyInlineStyle(
@@ -6531,7 +6589,7 @@ function parseInline(text, baseStart = 0) {
     }
 
     if (text.startsWith("**", i)) {
-      const close = text.indexOf("**", i + 2);
+      const close = findInlineEmphasisClose(text, i + 2, "**");
       if (close !== -1) {
         tokens.push(...applyInlineStyle(parseInline(text.slice(i + 2, close), baseStart + i + 2), { bold: true }));
         i = close + 2;
@@ -6540,7 +6598,7 @@ function parseInline(text, baseStart = 0) {
     }
 
     if (text.startsWith("*", i)) {
-      const close = text.indexOf("*", i + 1);
+      const close = findInlineEmphasisClose(text, i + 1, "*");
       if (close !== -1) {
         tokens.push(...applyInlineStyle(parseInline(text.slice(i + 1, close), baseStart + i + 1), { italic: true }));
         i = close + 1;
@@ -6548,7 +6606,7 @@ function parseInline(text, baseStart = 0) {
       }
     }
 
-    const nextMarkers = ["[[image:", "[", "{{underline:", "{{color:", "{{bg:", "***", "**", "*"]
+    const nextMarkers = ["`", "[[image:", "[", "{{underline:", "{{color:", "{{bg:", "***", "**", "*"]
       .map((marker) => text.indexOf(marker, i + 1))
       .filter((index) => index !== -1);
     const next = nextMarkers.length ? Math.min(...nextMarkers) : text.length;
@@ -6631,7 +6689,8 @@ function styleForBlock(type, settings) {
 function fontString(style, token = {}) {
   const italic = token.italic || style.italic ? "italic " : "";
   const weight = token.bold ? Math.max(700, Number(style.weight) || CARD_BODY_FONT_WEIGHT) : style.weight;
-  return `${italic}${weight} ${style.size}px ${fontFamilyForText(token.text, style)}`;
+  const family = token.code ? '"SFMono-Regular", Consolas, "Liberation Mono", monospace' : fontFamilyForText(token.text, style);
+  return `${italic}${weight} ${style.size}px ${family}`;
 }
 
 function fontFamilyForText(text, settings) {
@@ -7287,8 +7346,8 @@ function drawTextLine(ctx, item, settings) {
   for (const token of line) {
     ctx.font = fontString(style, token);
     const width = glyphWidth(ctx, token, style);
-    if (token.bgColor) {
-      ctx.fillStyle = token.bgColor;
+    if (token.bgColor || token.code) {
+      ctx.fillStyle = token.bgColor || "rgba(127, 127, 127, 0.12)";
       roundedRect(ctx, cursor - 3, y + Math.round(lineHeight * 0.14), width + 6, Math.round(lineHeight * 0.72), 7);
       ctx.fill();
     }
@@ -7540,7 +7599,8 @@ function renderArticleInline(text) {
 function renderArticleInlineTokens(tokens) {
   return tokens
     .map((token) => {
-      let inner = escapeHtml(token.text).replace(/`([^`]+)`/g, "<code>$1</code>");
+      let inner = escapeHtml(token.text);
+      if (token.code) inner = `<code>${inner}</code>`;
       if (token.bold) inner = `<strong>${inner}</strong>`;
       if (token.italic) inner = `<em>${inner}</em>`;
       if (token.link) {
@@ -11894,9 +11954,11 @@ function bindEvents() {
   els.ratioButtons.forEach((button) => {
     button.addEventListener("click", () => setCropAspect(button.dataset.ratio));
   });
-  els.cropCanvas.addEventListener("mousedown", startCropDrag);
-  window.addEventListener("mousemove", moveCropDrag);
-  window.addEventListener("mouseup", stopCropDrag);
+  els.cropCanvas.addEventListener("pointerdown", startCropDrag);
+  window.addEventListener("pointermove", moveCropDrag);
+  window.addEventListener("pointerup", stopCropDrag);
+  window.addEventListener("pointercancel", stopCropDrag);
+  els.cropCanvas.addEventListener("lostpointercapture", stopCropDrag);
   window.addEventListener("keydown", (event) => {
     if (feedbackModalIsOpen()) {
       if (event.key === "Escape") closeFeedbackModal();

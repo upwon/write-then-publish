@@ -4157,26 +4157,39 @@ body.export-busy {
   background: transparent;
 }
 
+#cropModal {
+  padding: 12px;
+}
+
+#cropModal .modal-card {
+  max-height: min(760px, calc(100vh - 24px));
+  max-height: min(760px, calc(100dvh - 24px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .crop-layout {
   display: grid;
   grid-template-columns: 1fr 220px;
   min-height: 0;
+  overflow: auto;
 }
 
 .crop-stage {
   min-width: 0;
   padding: 18px;
   background: var(--crop-stage-bg);
-  overflow: auto;
+  overflow: visible;
 }
 
 #cropCanvas {
   display: block;
-  width: 100%;
-  height: min(500px, calc(100vh - 220px));
+  width: min(100%, 720px);
+  height: auto;
+  margin-inline: auto;
   border-radius: 8px;
   background: var(--crop-canvas-bg);
   cursor: crosshair;
+  touch-action: none;
 }
 
 .crop-controls {
